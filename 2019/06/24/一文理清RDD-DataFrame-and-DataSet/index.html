@@ -8,18 +8,20 @@
   <link rel="dns-prefetch" href="http://vaporkun.com">
   <title>一文理清RDD, DataFrame, and DataSet | Vapor</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="每天都在思考生命的羞耻感中">
-<meta name="keywords" content="大数据,scala,spark,python,ES,Coder">
+  <meta name="description" content="以前使用scala的时候，只盯着rdd用，后来才发现原来另外的两个spark api：dataframe, dataset才是山外有山，人外有人。 本文就此进行对比，管窥一豹。">
+<meta name="keywords" content="scala,DataFrame,大数据">
 <meta property="og:type" content="article">
 <meta property="og:title" content="一文理清RDD, DataFrame, and DataSet">
 <meta property="og:url" content="http://vaporkun.com/2019/06/24/一文理清RDD-DataFrame-and-DataSet/index.html">
 <meta property="og:site_name" content="Vapor">
-<meta property="og:description" content="每天都在思考生命的羞耻感中">
+<meta property="og:description" content="以前使用scala的时候，只盯着rdd用，后来才发现原来另外的两个spark api：dataframe, dataset才是山外有山，人外有人。 本文就此进行对比，管窥一豹。">
 <meta property="og:locale" content="default">
-<meta property="og:updated_time" content="2019-06-24T15:44:46.784Z">
+<meta property="og:image" content="https://d2h0cx97tjks2p.cloudfront.net/blogs/wp-content/uploads/sites/2/2017/05/Spark-SQL-Optimization.jpg">
+<meta property="og:updated_time" content="2019-06-24T15:46:21.450Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="一文理清RDD, DataFrame, and DataSet">
-<meta name="twitter:description" content="每天都在思考生命的羞耻感中">
+<meta name="twitter:description" content="以前使用scala的时候，只盯着rdd用，后来才发现原来另外的两个spark api：dataframe, dataset才是山外有山，人外有人。 本文就此进行对比，管窥一豹。">
+<meta name="twitter:image" content="https://d2h0cx97tjks2p.cloudfront.net/blogs/wp-content/uploads/sites/2/2017/05/Spark-SQL-Optimization.jpg">
   
     <link rel="alternative" href="/atom.xml" title="Vapor" type="application/atom+xml">
   
@@ -179,7 +181,69 @@
     
     <div class="article-entry" itemprop="articleBody">
       
-        
+        <blockquote>
+<p>以前使用scala的时候，只盯着rdd用，后来才发现原来另外的两个spark api：dataframe, dataset才是山外有山，人外有人。</p>
+<p>本文就此进行对比，管窥一豹。</p>
+</blockquote>
+<a id="more"></a>
+<h2 id="简介RDD-DataFrame-and-DataSet"><a href="#简介RDD-DataFrame-and-DataSet" class="headerlink" title="简介RDD, DataFrame, and DataSet"></a>简介RDD, DataFrame, and DataSet</h2><ul>
+<li><p><strong>Spark Rdd API</strong>: </p>
+<p>rdd代表的是弹性分布式数据集，是Spark生态中基础的数据结构。能在分布式集群上进行可容错计算，加速计算任务。Spark1.0版本发布。</p>
+<p>rdd提供了类似text file, database 和 JDBC 之类的接口用于处理非结构化的数据，并且在编译时是类型安全的。</p>
+<p>rdd的并行单元是partition，rdd也提供了转化成dataframe的接口toDF(),.rdd。</p>
+</li>
+<li><p><strong>Spark Dataframe APIs</strong> ：</p>
+<p>类似于关系型数据库中的表结构，作为可变的分布式数据集，能让你在分布式数据集上进行结构化，并提供高可用的接口。Spark1.3版本发布。</p>
+<p>有丰富的数据类型(AVRO, CSV, JSON, and storage system<strong>HDFS</strong>, <strong>HIVE</strong> tables, MySQL)，可直接从上述的几个数据源读数。</p>
+</li>
+<li><p><strong>Spark Dataset APIs </strong>：最为DataFrame的一种拓展API，它提供的是一种类型安全，面对对象的接口。并且充分利用Spark’s Catalyst 优化器的优势，在编译时是类型安全的，于Spark1.6版本发布。</p>
+</li>
+</ul>
+<h2 id="优化器"><a href="#优化器" class="headerlink" title="优化器"></a>优化器</h2><ul>
+<li><p>RDD:相对其他两者的优化器可以等于说没有，RDD内部没有内嵌的优化引擎，并且也不能利用结构化数据的优势，比如catalyst optimizer 和 Tungsten execution engine。</p>
+</li>
+<li><p>DataFrame：首当其冲的当属catalyst 优化器，优化步骤可大概分为四步：</p>
+<p>1）解析查询语句</p>
+<p>2）逻辑优化</p>
+<figure class="highlight scala"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//例如</span></span><br><span class="line">user.join(events, user(<span class="string">"id"</span>) == events(<span class="string">"id"</span>))</span><br><span class="line">.filter(events(<span class="string">"date"</span>) &gt; <span class="string">"20190624"</span>)</span><br><span class="line"><span class="comment">//按照传统的sql来说及格的sql语句，但是内置的优化器能够将filter提前到join操作之前</span></span><br></pre></td></tr></table></figure>
+<p>3）多策略适配执行引擎</p>
+<p>4）代码生成并变异成Java字节码。</p>
+</li>
+</ul>
+<p><img src="https://d2h0cx97tjks2p.cloudfront.net/blogs/wp-content/uploads/sites/2/2017/05/Spark-SQL-Optimization.jpg" alt></p>
+<ul>
+<li>DataSet: 和DataFrame大同小异。</li>
+</ul>
+<h2 id="序列化"><a href="#序列化" class="headerlink" title="序列化"></a>序列化</h2><ul>
+<li><p>RDD：RDD用的是用的Java序列化，但是序列化单个Java和Scala对象的开销很昂贵，并且需要在节点之间发送数据和结构，同时也要考虑序列化由于创建和销毁单个对象而导致垃圾收集的开销。</p>
+</li>
+<li><p>DataFrame：Spark DataFrame能在off heap（通常是内存），并且以二进制的形式做转换，不再需要Java序列化去decode数据。内置的Tungsten physical execution backend能够很好的管理内存并动态生成字节码。</p>
+<p>每一行数据的创建都避免了垃圾回收的成本。</p>
+</li>
+<li><p>DataSet: 在序列化数据时，Spark中的数据集API具有编码器的概念，该编码器处理JVM对象与表格表示之间的转换。它使用spark内部Tungsten二进制格式存储表格表示。数据集允许对序列化数据执行操作并改善内存使用。</p>
+<p>由于在Tungsten使用的是堆外存储，也就没有垃圾回收的必要了。</p>
+</li>
+</ul>
+<h2 id="效率"><a href="#效率" class="headerlink" title="效率"></a>效率</h2><ul>
+<li><p>RDD：反复的序列化会导致计算效率下降。</p>
+<p>RDD是一种懒加载的API，只有当真正的Action操作执行是才会被送到driver里面运行。</p>
+<p>在执行简单的agg或者group操作是比较慢的。</p>
+</li>
+<li><p>DataFrame: 使用off heap内存进行序列化可以减少开销。它动态生成字节代码，以便可以对该序列化数据执行许多操作。无需对小型操作进行反序列化。同RDD也是懒加载。</p>
+<p>DataFrame API非常易于上手。分析更快，适用于在大型数据集上创建汇总统计数据。</p>
+</li>
+<li><p>DataSet:它允许对序列化数据执行操作并改善内存使用。因此，它允许按需访问单个属性，而无需反序列化整个对象， 同RDD也是懒加载，在大量数据集上进行聚合操作更快。</p>
+</li>
+</ul>
+<h3 id="该什么时候使用-DataFrame-或-Dataset-呢？"><a href="#该什么时候使用-DataFrame-或-Dataset-呢？" class="headerlink" title="该什么时候使用 DataFrame 或 Dataset 呢？"></a>该什么时候使用 DataFrame 或 Dataset 呢？</h3><ul>
+<li>如果你需要丰富的语义、高级抽象和特定领域专用的 API，那就使用 DataFrame 或 Dataset；</li>
+<li>如果你的处理需要对半结构化数据进行高级处理，如 filter、map、aggregation、average、sum、SQL 查询、列式访问或使用 lambda 函数，那就使用 DataFrame 或 Dataset；</li>
+<li>如果你想在编译时就有高度的类型安全，想要有类型的 JVM 对象，用上 Catalyst 优化，并得益于 Tungsten 生成的高效代码，那就使用 Dataset；</li>
+<li>如果你想在不同的 Spark 库之间使用一致和简化的 API，那就使用 DataFrame 或 Dataset；</li>
+<li>如果你是 R 语言使用者，就用 DataFrame；</li>
+<li>如果你是 Python 语言使用者，就用 DataFrame，在需要更细致的控制时就退回去使用 RDD；</li>
+</ul>
+
       
 
       
@@ -208,6 +272,25 @@
     <div class="article-info article-info-index">
       
       
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color1">scala</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">DataFrame</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color4">大数据</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
       
 
       
@@ -404,7 +487,19 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
               </li>
              
               <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color3">随笔</a>
+              </li>
+             
+              <li class="article-tag-list-item">
                 <a href="javascript:void(0)" class="js-tag color1">scala</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color5">DataFrame</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color4">大数据</a>
               </li>
              
               <li class="article-tag-list-item">
